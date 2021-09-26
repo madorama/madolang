@@ -1,4 +1,4 @@
-{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE ApplicativeDo #-}
 
 module Madlib.Megaparsec.Token where
 
@@ -91,4 +91,4 @@ identifier langStyle =
       else do
         P.notFollowedBy $ reserved $ langStyle { reservedNames = HashSet.map Text.toLower (reservedNames langStyle) }
         Text.pack <$> ident
-
+

@@ -9,7 +9,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 import           Madlib.Megaparsec.Language
 import           Madlib.Megaparsec.Parser
-import qualified Madlib.Megaparsec.Token     as T
+import qualified Madlib.Megaparsec.Token    as T
 
 type Parser =
   Parsec Void Text

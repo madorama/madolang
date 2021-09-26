@@ -1,6 +1,6 @@
 module Language.Syntax where
 
-import Data.Text
+import           Data.Text
 
 data Expr
   = EInt Integer

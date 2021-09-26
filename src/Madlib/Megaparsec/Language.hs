@@ -1,8 +1,8 @@
 module Madlib.Megaparsec.Language where
 
-import qualified Data.HashSet            as HashSet
+import qualified Data.HashSet             as HashSet
 import           Data.Text
-import           Text.Megaparsec         ((<|>))
+import           Text.Megaparsec          ((<|>))
 import           Text.Megaparsec.Char
 
 import           Madlib.Megaparsec.Parser
@@ -31,4 +31,4 @@ emptyStyle = LanguageStyle
   , nestedComments = False
   , caseSensitive = True
   }
-
+
