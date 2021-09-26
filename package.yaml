@@ -1,0 +1,108 @@
+name:                madolang
+version:             0.1.0.0
+github:              madorama/madolang
+license:             BSD3
+author:              madorama
+maintainer:          mamunine@gmail.com
+copyright:           2021 madorama
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/madorama/madolang#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- containers
+- unordered-containers
+- megaparsec
+- parser-combinators
+- mtl
+- utf8-string
+- bytestring
+- text
+- pretty-simple
+- prettyprinter
+- directory
+- time
+- lens
+- ansi-terminal
+- formatting
+
+ghc-options:
+- -Wall
+- -Werror=incomplete-record-updates
+- -Werror=incomplete-patterns
+- -Werror=incomplete-uni-patterns
+- -Werror=partial-fields
+- -Werror=identities
+- -Werror=monomorphism-restriction
+- -Wno-type-defaults
+- -Wcompat
+
+default-extensions:
+- BangPatterns
+- BinaryLiterals
+- ConstraintKinds
+- DataKinds
+- DefaultSignatures
+- DeriveDataTypeable
+- DeriveFoldable
+- DeriveFunctor
+- DeriveGeneric
+- DeriveTraversable
+- DoAndIfThenElse
+- DuplicateRecordFields
+- ExistentialQuantification
+- FlexibleContexts
+- FlexibleInstances
+- FunctionalDependencies
+- GADTs
+- GeneralizedNewtypeDeriving
+- InstanceSigs
+- KindSignatures
+- LambdaCase
+- MultiParamTypeClasses
+- MultiWayIf
+- NamedFieldPuns
+- OverloadedStrings
+- OverloadedLabels
+- PartialTypeSignatures
+- PatternSynonyms
+- PolyKinds
+- RankNTypes
+- RecordWildCards
+- ScopedTypeVariables
+- StandaloneDeriving
+- Strict
+- StrictData
+- TupleSections
+- TypeFamilies
+- TypeSynonymInstances
+- ViewPatterns
+
+library:
+  source-dirs: src
+
+executables:
+  madolang-exe:
+    main:                Main.hs
+    source-dirs:         app
+
+    dependencies:
+    - madolang
+    - optparse-applicative
+
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+
