@@ -31,5 +31,6 @@ parseLiteral =
   choice
     [ EInt <$> integer
     , EString <$> stringLiteral
+    , EId <$> identifier
     ]
     <?> "literal"
