@@ -22,16 +22,45 @@ parseProgram =
 
 parseExpr :: Parser Expr
 parseExpr =
-  choice
-    [ parseLet
-    , parseLiteral
-    ]
+  parseSimpleExpr Nothing
+
+parseSimpleExpr :: Maybe Expr -> Parser Expr
+parseSimpleExpr = \case
+  Just e ->
+    choice
+      [ parseApp e
+          >>= parseSimpleExpr . Just
+      , return e
+      ]
+
+  Nothing -> do
+    e <-
+      choice
+        [ parseLet
+        , parseLambda
+        , parseLiteral
+        ]
+    parseSimpleExpr $ Just e
 
 parseLet :: Parser Expr
 parseLet =
   ELet
   <$> try (symbol "let" *> identifier)
   <*> try (operator "=" *> parseExpr)
+
+parseLambda :: Parser Expr
+parseLambda = do
+  args <- try (parens $ commaSep identifier)
+  operator "->"
+  body <- try parseExpr
+  return $ mkLambda args body
+
+parseApp :: Expr -> Parser Expr
+parseApp e =
+  choice
+    [ try $ parens (EApp e <$> parseExpr)
+    , EApp e <$> (EUnit <$ symbol "()")
+    ]
 
 parseLiteral :: Parser Expr
 parseLiteral =
