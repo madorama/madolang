@@ -6,4 +6,5 @@ data Expr
   = EInt Integer
   | EString Text
   | EId Text
+  | ELet Text Expr
   deriving (Show, Eq)

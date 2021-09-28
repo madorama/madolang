@@ -23,8 +23,15 @@ parseProgram =
 parseExpr :: Parser Expr
 parseExpr =
   choice
-    [ parseLiteral
+    [ parseLet
+    , parseLiteral
     ]
+
+parseLet :: Parser Expr
+parseLet =
+  ELet
+  <$> try (symbol "let" *> identifier)
+  <*> try (operator "=" *> parseExpr)
 
 parseLiteral :: Parser Expr
 parseLiteral =

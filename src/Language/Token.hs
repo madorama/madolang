@@ -16,7 +16,7 @@ type Parser =
 
 keywords :: [Text]
 keywords =
-  []
+  [ "let" ]
 
 style :: MonadTextParsec e s m => LanguageStyle m
 style = emptyStyle
