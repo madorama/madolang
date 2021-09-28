@@ -3,11 +3,13 @@ module Language.Syntax where
 import           Data.Text
 
 data Expr
-  = EInt Integer
+  = EUnit
+  | EInt Integer
   | EString Text
   | EId Text
   | ELet Text Expr
   | ELambda (Maybe Text) Expr
+  | EApp Expr Expr
   deriving (Show, Eq)
 
 mkLambda :: [Text] -> Expr -> Expr
