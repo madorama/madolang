@@ -118,6 +118,13 @@ fresh = do
   varId += 1
   return $ TVar $ "a" <> T.pack (show vid)
 
+generalize :: TypeEnv -> Type -> Scheme
+generalize tyEnv t =
+  let
+    vars = S.toList (free t `S.difference` free tyEnv)
+  in
+  Scheme vars t
+
 instantiate :: Scheme -> Infer Type
 instantiate (Scheme as t) = do
   as1 <- mapM (const fresh) as
@@ -216,7 +223,7 @@ tiExpr = \case
     return (e1, t)
 
 tiExpr' :: Expr -> Subst -> Infer (Subst, Expr, Type)
-tiExpr' e _ = case e of
+tiExpr' e subst = case e of
   EInt _ ->
     return (emptySubst, e, TInt)
 
@@ -226,3 +233,22 @@ tiExpr' e _ = case e of
   EId name -> do
     t <- lookupEnv name
     return (emptySubst, e, t)
+
+  ELet name expr -> do
+    env_ <- use env
+    a <- fresh
+
+    let scheme = generalize (apply subst env_) a
+    env .= env_ `extend` (name, scheme)
+
+    (s1, e1, t1) <- tiExpr' expr subst
+
+    s <- unify a t1 (s1 `compose` subst)
+    let scheme' = generalize (apply s env_) t1
+    env .= env_ `extend` (name, scheme')
+
+    return
+      ( s
+      , ELet name e1
+      , TUnit
+      )
