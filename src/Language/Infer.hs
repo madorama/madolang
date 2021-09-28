@@ -277,7 +277,7 @@ tiExpr' e = case e of
   ELambda Nothing expr -> do
     (e1, t1) <- tiExpr' expr
     return
-      ( Typed.ELambda Nothing e1
+      ( Typed.ELambda Typed.Unit t1 e1
       , TArr TUnit t1
       )
 
@@ -291,9 +291,10 @@ tiExpr' e = case e of
     s <- use subst
     env .= env_
 
-    let t = TArr (apply s a) t1
+    let aty = apply s a
+    let t = TArr aty t1
     return
-      ( Typed.ELambda (Just (arg, t)) e1
+      ( Typed.ELambda (Typed.Id arg aty) t1 e1
       , t
       )
 
