@@ -24,6 +24,7 @@ parseExpr :: Parser Expr
 parseExpr =
   choice
     [ parseLet
+    , parseLambda
     , parseLiteral
     ]
 
@@ -32,6 +33,13 @@ parseLet =
   ELet
   <$> try (symbol "let" *> identifier)
   <*> try (operator "=" *> parseExpr)
+
+parseLambda :: Parser Expr
+parseLambda = do
+  args <- try (parens $ commaSep identifier)
+  operator "->"
+  body <- try parseExpr
+  return $ mkLambda args body
 
 parseLiteral :: Parser Expr
 parseLiteral =
