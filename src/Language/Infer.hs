@@ -43,12 +43,16 @@ instance Types Type where
   apply s = \case
     t@(TVar x) -> fromMaybe t $ M.lookup x s
 
+    TArr t1 t2 -> TArr (apply s t1) (apply s t2)
+
     t          -> t
 
   free = \case
-    TVar s -> S.singleton s
+    TVar s     -> S.singleton s
 
-    _      -> S.empty
+    TArr t1 t2 -> free t1 `S.union` free t2
+
+    _          -> S.empty
 
 instance Types a => Types [a] where
   apply = fmap . apply
@@ -95,6 +99,7 @@ data IState = IState
   { _env    :: TypeEnv
   , _varId  :: Int
   , _errors :: [Error]
+  , _subst  :: Subst
   } deriving Show
 
 makeClassy ''IState
@@ -104,6 +109,7 @@ initialIState = IState
   { _varId = 0
   , _env = emptyTypeEnv
   , _errors = []
+  , _subst = emptySubst
   }
 
 type Infer = State IState
@@ -126,13 +132,31 @@ generalize tyEnv t =
   Scheme vars t
 
 instantiate :: Scheme -> Infer Type
-instantiate (Scheme _ t) = do
-  return t
+instantiate (Scheme as t) = do
+  ts <- mapM (const fresh) as
+  return (inst ts t)
+
+class Instantiate t where
+  inst :: [Type] -> t -> t
+
+instance Instantiate Type where
+  inst ts = \case
+    TArr l r -> TArr (inst ts l) (inst ts r)
+
+    t        -> t
+
+instance Instantiate a => Instantiate [a] where
+  inst ts = map (inst ts)
 
 addError :: Error -> Infer ()
 addError err = do
   errs <- use errors
   errors .= errs ++ [err]
+
+addEnv :: (Id, Type) -> Infer ()
+addEnv (name, t) = do
+  env_ <- use env
+  env .= env_ `extend` (name, generalize env_ t)
 
 lookupEnv :: Id -> Infer Type
 lookupEnv x = do
@@ -163,6 +187,11 @@ bind a t
 
 mgu :: Type -> Type -> Infer Subst
 mgu t1 t2 = case (t1, t2) of
+  (TArr l1 r1, TArr l2 r2)  -> do
+    s1 <- mgu l1 l2
+    s2 <- mgu (apply s1 r1) (apply s1 r2)
+    return $ s2 `compose` s1
+
   (TVar a, t)               ->
     bind a t
 
@@ -176,10 +205,11 @@ mgu t1 t2 = case (t1, t2) of
     addError $ TypesDoNotUnify t1 t2
     return emptySubst
 
-unify :: Type -> Type -> Subst -> Infer Subst
-unify t1 t2 s = do
+unify :: Type -> Type -> Infer ()
+unify t1 t2 = do
+  s <- use subst
   u <- mgu (apply s t1) (apply s t2)
-  return $ u `compose` s
+  subst .= u `compose` s
 
 runInfer :: IState -> Infer (Expr, Type) -> Either [Error] (Expr, IState)
 runInfer st ti =
@@ -217,71 +247,60 @@ run es' =
 tiExpr :: Expr -> Infer (Expr, Type)
 tiExpr = \case
   e -> do
-    (_, e1, t) <- tiExpr' e emptySubst
-    return (e1, t)
+    (e1, t1) <- tiExpr' e
+    return (e1, t1)
 
-tiExpr' :: Expr -> Subst -> Infer (Subst, Expr, Type)
-tiExpr' e subst = case e of
+tiExpr' :: Expr -> Infer (Expr, Type)
+tiExpr' e = case e of
   EUnit ->
-    return (emptySubst, e, TUnit)
+    return (e, TUnit)
 
   EInt _ ->
-    return (emptySubst, e, TInt)
+    return (e, TInt)
 
   EString _ ->
-    return (emptySubst, e, TString)
+    return (e, TString)
 
   EId name -> do
     t <- lookupEnv name
-    return (emptySubst, e, t)
+    return (e, t)
 
   ELet name expr -> do
-    env_ <- use env
-    a <- fresh
-
-    let scheme = generalize (apply subst env_) a
-    env .= env_ `extend` (name, scheme)
-
-    (s1, e1, t1) <- tiExpr' expr subst
-
-    s <- unify a t1 (s1 `compose` subst)
-    let scheme' = generalize (apply s env_) t1
-    env .= env_ `extend` (name, scheme')
-
+    (e1, t1) <- tiExpr' expr
+    addEnv (name, t1)
     return
-      ( s
-      , ELet name e1
+      ( ELet name e1
       , TUnit
       )
 
   ELambda Nothing expr -> do
-    a <- fresh
-    (s1, e1, t1) <- tiExpr' expr subst
-    s <- unify a t1 (s1 `compose` subst)
+    (e1, t1) <- tiExpr' expr
     return
-      ( s
-      , ELambda Nothing e1
-      , apply s t1
+      ( ELambda Nothing e1
+      , TArr TUnit t1
       )
 
   ELambda (Just arg) expr -> do
-    a <- fresh
-    b <- fresh
-
     env_ <- use env
-    let scheme = generalize (apply subst env_) a
-    env .= env_ `extend` (arg, scheme)
 
-    (s1, e1, t1) <- tiExpr' expr subst
-    s <- unify b t1 (s1 `compose` subst)
+    a <- fresh
+    addEnv (arg, a)
+    (e1, t1) <- tiExpr' expr
 
+    s <- use subst
     env .= env_
-
     return
-      ( subst
-      , ELambda (Just arg) e1
-      , TArr (apply s a) (apply s b)
+      ( ELambda (Just arg) e1
+      , TArr (apply s a) t1
       )
 
-  EApp _ _ ->
-    undefined
+  EApp l r -> do
+    (e1, t1) <- tiExpr' l
+    (e2, t2) <- tiExpr' r
+    a <- fresh
+    unify t1 (TArr t2 a)
+    s <- use subst
+    return
+      ( EApp e1 e2
+      , apply s a
+      )
