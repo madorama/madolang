@@ -15,6 +15,7 @@ type Id =
 data Type
   = TVar Text
   | TCon Text
+  | TArr Type Type
   deriving Eq
 
 pattern TUnit :: Type
@@ -28,9 +29,11 @@ pattern TString = TCon "String"
 
 showType :: Type -> Text
 showType = \case
-  TVar x -> "~" <> x
+  TVar x   -> "~" <> x
 
-  TCon x -> x
+  TCon x   -> x
+
+  TArr l r -> showType l <> " -> " <> showType r
 
 instance Show Type where
   show = unpack . showType

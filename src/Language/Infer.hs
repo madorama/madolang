@@ -126,10 +126,8 @@ generalize tyEnv t =
   Scheme vars t
 
 instantiate :: Scheme -> Infer Type
-instantiate (Scheme as t) = do
-  as1 <- mapM (const fresh) as
-  let s = M.fromList $ as `zip` as1
-  return $ apply s t
+instantiate (Scheme _ t) = do
+  return t
 
 addError :: Error -> Infer ()
 addError err = do
@@ -224,6 +222,9 @@ tiExpr = \case
 
 tiExpr' :: Expr -> Subst -> Infer (Subst, Expr, Type)
 tiExpr' e subst = case e of
+  EUnit ->
+    return (emptySubst, e, TUnit)
+
   EInt _ ->
     return (emptySubst, e, TInt)
 
@@ -252,3 +253,35 @@ tiExpr' e subst = case e of
       , ELet name e1
       , TUnit
       )
+
+  ELambda Nothing expr -> do
+    a <- fresh
+    (s1, e1, t1) <- tiExpr' expr subst
+    s <- unify a t1 (s1 `compose` subst)
+    return
+      ( s
+      , ELambda Nothing e1
+      , apply s t1
+      )
+
+  ELambda (Just arg) expr -> do
+    a <- fresh
+    b <- fresh
+
+    env_ <- use env
+    let scheme = generalize (apply subst env_) a
+    env .= env_ `extend` (arg, scheme)
+
+    (s1, e1, t1) <- tiExpr' expr subst
+    s <- unify b t1 (s1 `compose` subst)
+
+    env .= env_
+
+    return
+      ( subst
+      , ELambda (Just arg) e1
+      , TArr (apply s a) (apply s b)
+      )
+
+  EApp _ _ ->
+    undefined
