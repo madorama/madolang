@@ -15,6 +15,7 @@ import           Madlib.Operator
 
 import           Language.Syntax
 import           Language.Type
+import qualified Language.Typed             as Typed
 
 data Scheme
   = Scheme [Id] Type
@@ -211,7 +212,7 @@ unify t1 t2 = do
   u <- mgu (apply s t1) (apply s t2)
   subst .= u `compose` s
 
-runInfer :: IState -> Infer (Expr, Type) -> Either [Error] (Expr, IState)
+runInfer :: IState -> Infer (Typed.Expr, Type) -> Either [Error] (Typed.Expr, IState)
 runInfer st ti =
   let
     ((e, _), st') =
@@ -221,7 +222,7 @@ runInfer st ti =
     []   -> Right (e, st')
     errs -> Left errs
 
-run :: [Expr] -> Either [Error] ([Expr], TypeEnv)
+run :: [Expr] -> Either [Error] ([Typed.Expr], TypeEnv)
 run es' =
   let
     aux st errs es = \case
@@ -244,39 +245,39 @@ run es' =
   aux initialIState [] [] es'
   |> id +++ (\(es, IState{..}) -> (es, _env))
 
-tiExpr :: Expr -> Infer (Expr, Type)
+tiExpr :: Expr -> Infer (Typed.Expr, Type)
 tiExpr = \case
   e -> do
     (e1, t1) <- tiExpr' e
     return (e1, t1)
 
-tiExpr' :: Expr -> Infer (Expr, Type)
+tiExpr' :: Expr -> Infer (Typed.Expr, Type)
 tiExpr' e = case e of
   EUnit ->
-    return (e, TUnit)
+    return (Typed.EUnit, TUnit)
 
-  EInt _ ->
-    return (e, TInt)
+  EInt n ->
+    return (Typed.EInt n, TInt)
 
-  EString _ ->
-    return (e, TString)
+  EString s ->
+    return (Typed.EString s, TString)
 
   EId name -> do
     t <- lookupEnv name
-    return (e, t)
+    return (Typed.EId name, t)
 
   ELet name expr -> do
     (e1, t1) <- tiExpr' expr
     addEnv (name, t1)
     return
-      ( ELet name e1
+      ( Typed.ELet name t1 e1
       , TUnit
       )
 
   ELambda Nothing expr -> do
     (e1, t1) <- tiExpr' expr
     return
-      ( ELambda Nothing e1
+      ( Typed.ELambda Typed.Unit t1 e1
       , TArr TUnit t1
       )
 
@@ -289,9 +290,12 @@ tiExpr' e = case e of
 
     s <- use subst
     env .= env_
+
+    let aty = apply s a
+    let t = TArr aty t1
     return
-      ( ELambda (Just arg) e1
-      , TArr (apply s a) t1
+      ( Typed.ELambda (Typed.Id arg aty) t1 e1
+      , t
       )
 
   EApp l r -> do
@@ -301,6 +305,6 @@ tiExpr' e = case e of
     unify t1 (TArr t2 a)
     s <- use subst
     return
-      ( EApp e1 e2
+      ( Typed.EApp e1 e2
       , apply s a
       )
