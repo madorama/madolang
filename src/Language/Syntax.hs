@@ -1,13 +1,14 @@
 module Language.Syntax where
 
 import           Data.Text
+import           Language.Type
 
 data Expr
   = EUnit
   | EInt Integer
   | EString Text
   | EId Text
-  | ELet Text Expr
+  | ELet Text (Maybe Type) Expr
   | ELambda (Maybe Text) Expr
   | EApp Expr Expr
   deriving (Show, Eq)

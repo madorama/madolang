@@ -2,12 +2,16 @@ module Language.Parser
   ( run
   ) where
 
+import           Control.Monad.Combinators.Expr
 import           Data.Text
 import           Data.Void
-import           Text.Megaparsec hiding (Label, unexpected)
+import           Text.Megaparsec                hiding (Label, unexpected)
+
+import           Madlib.Operator
 
 import           Language.Syntax
 import           Language.Token
+import           Language.Type
 
 type Source =
   Text
@@ -19,6 +23,21 @@ run =
 parseProgram :: Parser [Expr]
 parseProgram =
   many parseExpr
+
+parseType :: Parser Type
+parseType =
+  let
+    p =
+      choice
+        [ TUnit <$ symbol "()"
+        , TInt <$ symbol "int"
+        , TString <$ symbol "string"
+        , TVar <$> identifier
+        ]
+  in
+  [ [ InfixR (TArr <$ symbol "->")]
+  ]
+    |> makeExprParser p
 
 parseExpr :: Parser Expr
 parseExpr =
@@ -46,6 +65,7 @@ parseLet :: Parser Expr
 parseLet =
   ELet
   <$> try (symbol "let" *> identifier)
+  <*> try (optional $ operator ":" *> parseType)
   <*> try (operator "=" *> parseExpr)
 
 parseLambda :: Parser Expr

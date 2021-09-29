@@ -5,6 +5,7 @@ module Language.Infer where
 import           Control.Arrow              (left, (+++))
 import           Control.Lens               hiding ((|>))
 import           Control.Monad.State.Strict
+import           Data.List                  (nub)
 import qualified Data.Map.Strict            as M
 import           Data.Maybe
 import qualified Data.Set                   as S
@@ -119,11 +120,15 @@ remove :: TypeEnv -> Id -> TypeEnv
 remove (TypeEnv e) name =
   TypeEnv $ M.delete name e
 
+letters :: [Text]
+letters =
+  [1..] >>= \i -> map T.pack (replicateM i ['a'..'z'])
+
 fresh :: Infer Type
 fresh = do
   vid <- use varId
   varId += 1
-  return $ TVar $ "a" <> T.pack (show vid)
+  return $ TVar $ letters !! vid
 
 generalize :: TypeEnv -> Type -> Scheme
 generalize tyEnv t =
@@ -212,6 +217,39 @@ unify t1 t2 = do
   u <- mgu (apply s t1) (apply s t2)
   subst .= u `compose` s
 
+normalize :: Scheme -> Scheme
+normalize (Scheme _ t) =
+  let
+    ord =
+      zip (nub $ fv t) letters
+
+    fv = \case
+      TVar a   -> [a]
+      TArr a b -> fv a ++ fv b
+      TCon _   -> []
+
+    normtype = \case
+      TArr a b -> TArr (normtype a) (normtype b)
+      TCon a  -> TCon a
+      TVar a ->
+        case lookup a ord of
+          Just x ->
+            TVar x
+
+          Nothing ->
+            error "type variable not in signature"
+  in
+  Scheme (map snd ord) (normtype t)
+
+
+closeOver :: (Subst, Type) -> Scheme
+closeOver (s, ty) =
+  let
+    sc =
+      generalize emptyTypeEnv (apply s ty)
+  in
+  normalize sc
+
 runInfer :: IState -> Infer (Typed.Expr, Type) -> Either [Error] (Typed.Expr, IState)
 runInfer st ti =
   let
@@ -266,11 +304,20 @@ tiExpr' e = case e of
     t <- lookupEnv name
     return (Typed.EId name, t)
 
-  ELet name expr -> do
+  ELet name Nothing expr -> do
     (e1, t1) <- tiExpr' expr
     addEnv (name, t1)
     return
       ( Typed.ELet name t1 e1
+      , TUnit
+      )
+
+  ELet name (Just t) expr -> do
+    (e1, t1) <- tiExpr' expr
+    unify t t1
+    s <- use subst
+    return
+      ( Typed.ELet name (apply s t) e1
       , TUnit
       )
 
