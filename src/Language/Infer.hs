@@ -85,6 +85,7 @@ compose s1 s2 =
 data Error
   = TypesDoNotUnify Type Type
   | OccursCheckFails Text Type
+  | Mismatch Type Type
   | UnboundVariable Id
 
 instance Show Error where
@@ -94,6 +95,9 @@ instance Show Error where
 
     OccursCheckFails u t ->
       "Occurs check fails: " <> T.unpack u <> " vs. " <> show t
+
+    Mismatch u t ->
+      "Mismatch: " <> show u <> " <=> " <> show t
 
     UnboundVariable name ->
       "Unbound variable: " <> T.unpack name
@@ -200,7 +204,7 @@ mgu t1 t2 = case (t1, t2) of
     return $ s2 `compose` s1
 
   (TVar a, TVar a') | a /= a' -> do
-    addError $ TypesDoNotUnify t1 t2
+    addError $ Mismatch t1 t2
     return emptySubst
 
   (TVar a, t)               ->
