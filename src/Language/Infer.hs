@@ -14,6 +14,7 @@ import qualified Data.Text                  as T
 
 import           Madlib.Operator
 
+import           Debug.Trace                (traceShowId)
 import           Language.Syntax
 import           Language.Type
 import qualified Language.Typed             as Typed
@@ -198,6 +199,10 @@ mgu t1 t2 = case (t1, t2) of
     s2 <- mgu (apply s1 r1) (apply s1 r2)
     return $ s2 `compose` s1
 
+  (TVar a, TVar a') | a /= a' -> do
+    addError $ TypesDoNotUnify t1 t2
+    return emptySubst
+
   (TVar a, t)               ->
     bind a t
 
@@ -314,10 +319,12 @@ tiExpr' e = case e of
 
   ELet name (Just t) expr -> do
     (e1, t1) <- tiExpr' expr
-    unify t t1
     s <- use subst
+    t' <- instantiate $ closeOver (s, t)
+    unify t' t1
+    addEnv (name, t)
     return
-      ( Typed.ELet name (apply s t) e1
+      ( Typed.ELet name t e1
       , TUnit
       )
 
