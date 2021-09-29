@@ -274,13 +274,13 @@ run es' =
       [x] -> do
         (e, st') <- left (errs ++) (runInfer st $ tiExpr x)
         if null errs
-          then Right (es ++ [e], st')
+          then Right (es ++ [e], (st' { _varId = 0 }))
           else Left errs
 
       x:xs ->
         case runInfer st $ tiExpr x of
           Right (e, st') ->
-            aux st' errs (es ++ [e]) xs
+            aux (st' { _varId = 0 }) errs (es ++ [e]) xs
 
           Left err ->
             aux st (errs ++ err) es xs
@@ -321,7 +321,8 @@ tiExpr' e = case e of
     (e1, t1) <- tiExpr' expr
     s <- use subst
     t' <- instantiate $ closeOver (s, t)
-    unify t' t1
+    t1' <- instantiate $ closeOver (s, t1)
+    unify t' t1'
     addEnv (name, t)
     return
       ( Typed.ELet name t e1
